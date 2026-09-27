@@ -1,9 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Card, goBack, PillButton, Screen, T, TopBar } from '@/components/ui';
+import { SPENDING_LIMITS } from '@/game/data/monetization';
+import { spentThisMonth } from '@/game/logic/meta';
 import type { Settings as SettingsType } from '@/game/types';
+import { getPurchaseProvider } from '@/iap/purchases';
 import { useGameStore } from '@/store/gameStore';
 import { colors, spacing } from '@/theme';
 
@@ -18,11 +21,16 @@ export default function Settings() {
   const toggle = useGameStore((s) => s.toggleSetting);
   const resetGame = useGameStore((s) => s.resetGame);
   const [confirmReset, setConfirmReset] = useState(false);
+  const spendingLimit = useGameStore((s) => s.spendingLimit);
+  const setSpendingLimit = useGameStore((s) => s.setSpendingLimit);
+  const history = useGameStore((s) => s.purchaseHistory);
+  const [restoreLabel, setRestoreLabel] = useState('Restaurer mes achats');
+  const provider = getPurchaseProvider();
 
   return (
     <Screen>
       <TopBar title="Réglages ⚙️" />
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.card}>
           {OPTIONS.map((o) => (
             <View key={o.key} style={styles.row}>
@@ -40,8 +48,41 @@ export default function Settings() {
         </Card>
 
         <Card style={styles.card}>
+          <T style={styles.label}>🛡️ Achats intégrés</T>
+          <T style={styles.soft}>
+            Dépensé ce mois-ci : {spentThisMonth(history, new Date()).toFixed(2).replace('.', ',')} €
+            {provider.isDemo ? ' (mode démo, aucun paiement réel)' : ''}
+          </T>
+          <T style={styles.soft}>Limite mensuelle (utile pour les enfants) :</T>
+          <View style={styles.limits}>
+            {SPENDING_LIMITS.map((l) => (
+              <PillButton
+                key={`${l}`}
+                small
+                variant={spendingLimit === l ? 'primary' : 'secondary'}
+                label={l === null ? 'Aucune' : `${l} €`}
+                onPress={() => setSpendingLimit(l)}
+              />
+            ))}
+          </View>
+          <PillButton
+            small
+            variant="secondary"
+            label={restoreLabel}
+            onPress={async () => {
+              setRestoreLabel('Restauration…');
+              const ids = await provider.restore();
+              setRestoreLabel(ids.length > 0 ? `${ids.length} achat(s) restauré(s) ✓` : 'Achats à jour ✓');
+            }}
+          />
+        </Card>
+
+        <Card style={styles.card}>
           <T style={styles.label}>🌱 Nouvelle partie</T>
-          <T style={styles.soft}>Recommencer au jour 1 avec 100 pièces. Ta progression actuelle sera effacée.</T>
+          <T style={styles.soft}>
+            Recommencer au jour 1 avec 100 pièces. Ta progression sera effacée ; ton miel, tes auvents et tes achats
+            sont conservés.
+          </T>
           {confirmReset ? (
             <View style={styles.row}>
               <PillButton small variant="secondary" label="Annuler" onPress={() => setConfirmReset(false)} />
@@ -62,16 +103,17 @@ export default function Settings() {
 
         <T style={styles.about}>Le Petit Étal · un jeu tout doux, sans chrono ni game over. 🍓🥕</T>
         <PillButton variant="secondary" label="← Retour" onPress={goBack} />
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, gap: spacing.lg },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xl },
   card: { gap: spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   label: { fontSize: 16, fontWeight: '700' },
   soft: { color: colors.textSoft, fontSize: 13 },
+  limits: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   about: { textAlign: 'center', color: colors.textSoft, fontSize: 13 },
 });

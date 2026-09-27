@@ -167,7 +167,14 @@ const COMMENTS: Record<number, string[]> = {
   3: ['Merveilleux, merci ! 💚', 'Le meilleur étal du marché !', 'Quel régal, à samedi ! ✨'],
 };
 
-export function checkout(customer: Customer, attractiveness: number, upgrades: string[], rng: Rng): CheckoutResult {
+export function checkout(
+  customer: Customer,
+  attractiveness: number,
+  upgrades: string[],
+  rng: Rng,
+  /** Multiplicateur de pourboire (ex. avantage abonné·e). */
+  tipBonus = 1,
+): CheckoutResult {
   if (customer.units === 0) {
     return { stars: 0, tip: 0, total: 0, comment: pick(rng, COMMENTS[0]) };
   }
@@ -186,7 +193,7 @@ export function checkout(customer: Customer, attractiveness: number, upgrades: s
 
   const type = getCustomerType(customer.typeId);
   const scaleBonus = upgrades.includes('scale') ? 1.25 : 1;
-  const tip = round1(customer.bill * 0.05 * stars * type.tipFactor * scaleBonus);
+  const tip = round1(customer.bill * 0.05 * stars * type.tipFactor * scaleBonus * tipBonus);
   return { stars, tip, total: round1(customer.bill + tip), comment: pick(rng, COMMENTS[stars]) };
 }
 

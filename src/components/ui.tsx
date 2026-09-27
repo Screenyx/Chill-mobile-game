@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -21,7 +21,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { haptic, resumeMusicIfNeeded } from '@/audio/sound';
-import { reputationLevel, reputationProgress, SEASON_LABELS, seasonForDay } from '@/game/logic/calendar';
+import { reputationLevel, SEASON_LABELS, seasonForDay } from '@/game/logic/calendar';
 import { formatCoins } from '@/game/logic/economy';
 import { useGameStore } from '@/store/gameStore';
 import { colors, fonts, radius, softShadow, spacing } from '@/theme';
@@ -151,19 +151,39 @@ export function TopBar({ title, right }: { title?: string; right?: ReactNode }) 
         <T style={styles.topTitle} numberOfLines={1}>
           {title ?? `Jour ${day}`}
         </T>
-        <T style={styles.topSub}>
+        <T style={styles.topSub} numberOfLines={1}>
           {season.emoji} {season.name} · Jour {day}
         </T>
       </View>
       {right}
       <View style={styles.chip}>
         <T style={styles.chipText}>⭐ {reputationLevel(reputation)}</T>
-        <View style={{ width: 28, marginLeft: 4 }}>
-          <ProgressBar value={reputationProgress(reputation)} color={colors.honey} height={5} />
-        </View>
       </View>
       <CoinChip amount={coins} />
+      <HoneyChip />
     </View>
+  );
+}
+
+/** Solde de miel 🍯 ; un appui ouvre la boutique. */
+export function HoneyChip() {
+  const honey = useGameStore((s) => s.honey);
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    scale.value = withSequence(withTiming(1.15, { duration: 120 }), withSpring(1));
+  }, [honey, scale]);
+  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Animated.View style={animated}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${honey} pots de miel, ouvrir la boutique`}
+        onPress={() => router.push('/store')}
+        style={[styles.chip, styles.honeyChip]}>
+        <T style={styles.chipText}>🍯 {honey}</T>
+        <T style={styles.plus}>+</T>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -211,7 +231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
-  topTitle: { fontSize: 20, fontWeight: '800' },
+  topTitle: { fontSize: 18, fontWeight: '800' },
   topSub: { fontSize: 13, color: colors.textSoft },
   chip: {
     flexDirection: 'row',
@@ -223,6 +243,8 @@ const styles = StyleSheet.create({
     ...softShadow,
   },
   coinChip: { backgroundColor: colors.honeyLight },
+  honeyChip: { backgroundColor: '#FCE9C2', gap: 4 },
+  plus: { fontSize: 13, fontWeight: '900', color: colors.terracottaDark },
   chipText: { fontSize: 14, fontWeight: '700' },
 });
 
@@ -230,4 +252,10 @@ const styles = StyleSheet.create({
 export function goBack() {
   if (router.canGoBack()) router.back();
   else router.replace('/');
+}
+
+/** Horodatage figé à l'affichage de l'écran (évite d'appeler Date.now() pendant le rendu). */
+export function useNow(): number {
+  const [now] = useState(() => Date.now());
+  return now;
 }

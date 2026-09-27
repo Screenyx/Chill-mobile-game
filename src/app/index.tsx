@@ -1,13 +1,28 @@
-import { router, type Href } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { router, useFocusEffect, type Href } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Awning, Sky } from '@/components/scenery';
 import { Crate } from '@/components/stall';
-import { Card, CoinChip, PillButton, ProgressBar, Screen, T, useContentWidth } from '@/components/ui';
+import { DailyRewardSheet, PassCard, QuestsCard } from '@/components/meta-widgets';
+import { PurchaseSheet } from '@/components/purchase-sheet';
+import {
+  Card,
+  CoinChip,
+  HoneyChip,
+  PillButton,
+  ProgressBar,
+  Screen,
+  T,
+  useContentWidth,
+  useNow,
+} from '@/components/ui';
 import { CONFIG } from '@/game/config';
+import { getIapProduct, type IapProduct } from '@/game/data/monetization';
 import { PRODUCE } from '@/game/data/produce';
 import { reputationLevel, reputationProgress, SEASON_LABELS, dayInSeason, seasonForDay } from '@/game/logic/calendar';
+import { canClaimDaily, dateKey, featuredOfferId, isSubscriber } from '@/game/logic/meta';
 import type { Phase } from '@/game/types';
 import { useGameStore } from '@/store/gameStore';
 import { colors, spacing } from '@/theme';
@@ -29,6 +44,30 @@ export default function Home() {
   const phase = useGameStore((s) => s.phase);
   const collection = useGameStore((s) => s.collection);
   const startDay = useGameStore((s) => s.startDay);
+  const refreshMeta = useGameStore((s) => s.refreshMeta);
+  const entitlements = useGameStore((s) => s.entitlements);
+  const now = useNow();
+  const pass = useGameStore((s) => s.pass);
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const [product, setProduct] = useState<IapProduct | null>(null);
+
+  // À chaque retour sur l'accueil : nouvelles quêtes si on a changé de jour, et cadeau du jour s'il est disponible.
+  useFocusEffect(
+    useCallback(() => {
+      const now = new Date();
+      refreshMeta(now);
+      if (canClaimDaily(useGameStore.getState().daily, dateKey(now))) setDailyOpen(true);
+    }, [refreshMeta]),
+  );
+
+  const offerId = featuredOfferId({
+    day,
+    starterBought: entitlements.starterBought,
+    subscriber: isSubscriber(entitlements.subscriptionUntil, now),
+    passPremium: pass.premium,
+    passXp: pass.xp,
+  });
+  const offer = offerId ? getIapProduct(offerId) : null;
 
   const season = SEASON_LABELS[seasonForDay(day)];
   const level = reputationLevel(reputation);
@@ -62,47 +101,84 @@ export default function Home() {
         </View>
       </View>
 
-      <Animated.View entering={FadeInDown.duration(600)} style={styles.body}>
-        <Card style={styles.infoCard}>
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <T style={styles.dayText}>Jour {day}</T>
-              <T style={styles.soft}>
-                {season.emoji} {season.name}, jour {dayInSeason(day)}/{CONFIG.daysPerSeason}
-              </T>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Animated.View entering={FadeInDown.duration(600)} style={styles.body}>
+          <Card style={styles.infoCard}>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <T style={styles.dayText}>Jour {day}</T>
+                <T style={styles.soft}>
+                  {season.emoji} {season.name}, jour {dayInSeason(day)}/{CONFIG.daysPerSeason}
+                </T>
+              </View>
+              <View style={{ gap: 6, alignItems: 'flex-end' }}>
+                <CoinChip amount={coins} />
+                <HoneyChip />
+              </View>
             </View>
-            <CoinChip amount={coins} />
-          </View>
-          <View style={[styles.row, { marginTop: spacing.md }]}>
-            <T style={styles.repText}>⭐ Réputation niveau {level}</T>
-          </View>
-          <ProgressBar value={reputationProgress(reputation)} color={colors.honey} />
-        </Card>
+            <View style={[styles.row, { marginTop: spacing.md }]}>
+              <T style={styles.repText}>⭐ Réputation niveau {level}</T>
+            </View>
+            <ProgressBar value={reputationProgress(reputation)} color={colors.honey} />
+          </Card>
 
-        <PillButton
-          label={phase === 'home' ? 'Commencer la journée ☀️' : CONTINUE[phase].label}
-          onPress={onMain}
-          style={{ marginTop: spacing.lg }}
-        />
+          <PillButton label={phase === 'home' ? 'Commencer la journée ☀️' : CONTINUE[phase].label} onPress={onMain} />
 
-        <View style={styles.secondaryRow}>
-          <PillButton
-            small
-            variant="secondary"
-            label={`📖 Carnet ${collection.length}/${PRODUCE.length}`}
-            onPress={() => router.push('/collection')}
-            style={styles.flex}
-          />
-          <PillButton
-            small
-            variant="secondary"
-            label="🛠️ Boutique"
-            onPress={() => router.push('/shop')}
-            style={styles.flex}
-          />
-        </View>
-        <PillButton small variant="ghost" label="⚙️ Réglages" onPress={() => router.push('/settings')} />
-      </Animated.View>
+          {offer && (
+            <Pressable accessibilityRole="button" accessibilityLabel={offer.title} onPress={() => setProduct(offer)}>
+              <Card style={styles.offer}>
+                <T style={{ fontSize: 34 }}>{offer.emoji}</T>
+                <View style={{ flex: 1 }}>
+                  <T style={styles.offerTitle}>{offer.title}</T>
+                  <T style={styles.offerDesc}>{offer.description}</T>
+                </View>
+                <View style={styles.offerPrice}>
+                  <T style={styles.offerPriceText}>{offer.displayPrice}</T>
+                </View>
+              </Card>
+            </Pressable>
+          )}
+
+          <PassCard />
+          <QuestsCard />
+
+          <View style={styles.secondaryRow}>
+            <PillButton
+              small
+              variant="secondary"
+              label={`📖 Carnet ${collection.length}/${PRODUCE.length}`}
+              onPress={() => router.push('/collection')}
+              style={styles.flex}
+            />
+            <PillButton
+              small
+              variant="secondary"
+              label="🛠️ Améliorations"
+              onPress={() => router.push('/shop')}
+              style={styles.flex}
+            />
+          </View>
+          <View style={styles.secondaryRow}>
+            <PillButton
+              small
+              variant="honey"
+              label="🍯 Boutique"
+              onPress={() => router.push('/store')}
+              style={styles.flex}
+            />
+            <PillButton
+              small
+              variant="secondary"
+              label="🎁 Cadeau"
+              onPress={() => setDailyOpen(true)}
+              style={styles.flex}
+            />
+          </View>
+          <PillButton small variant="ghost" label="⚙️ Réglages" onPress={() => router.push('/settings')} />
+        </Animated.View>
+      </ScrollView>
+      <DailyRewardSheet visible={dailyOpen} onClose={() => setDailyOpen(false)} />
+      <PurchaseSheet product={product} onClose={() => setProduct(null)} />
     </Screen>
   );
 }
@@ -121,12 +197,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 6,
     borderBottomColor: colors.woodDark,
   },
-  body: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  scroll: { paddingBottom: spacing.xl },
+  body: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md },
+  offer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: '#FFF8E6',
+    borderWidth: 2,
+    borderColor: colors.honey,
+  },
+  offerTitle: { fontWeight: '900', fontSize: 15 },
+  offerDesc: { fontSize: 12, color: colors.textSoft },
+  offerPrice: { backgroundColor: colors.sageDark, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  offerPriceText: { color: colors.white, fontWeight: '800', fontSize: 13 },
   infoCard: { gap: spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center' },
   dayText: { fontSize: 22, fontWeight: '800' },
   soft: { color: colors.textSoft },
   repText: { fontWeight: '700', marginBottom: 4 },
-  secondaryRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  secondaryRow: { flexDirection: 'row', gap: spacing.md },
   flex: { flex: 1 },
 });

@@ -3,9 +3,11 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Card, PillButton, ProgressBar, Screen, T } from '@/components/ui';
+import { DAILY_REWARDS, PASS_TIERS, PASS_XP_PER_TIER } from '@/game/data/monetization';
 import { getProduce } from '@/game/data/produce';
 import { reputationLevel, reputationProgress } from '@/game/logic/calendar';
 import { formatCoins, round1 } from '@/game/logic/economy';
+import { isQuestDone, passClaimable, passTier, rewardLabel } from '@/game/logic/meta';
 import { useGameStore } from '@/store/gameStore';
 import { colors, spacing } from '@/theme';
 
@@ -15,6 +17,12 @@ export default function Summary() {
   const coins = useGameStore((s) => s.coins);
   const reputation = useGameStore((s) => s.reputation);
   const nextDay = useGameStore((s) => s.nextDay);
+  const pass = useGameStore((s) => s.pass);
+  const daily = useGameStore((s) => s.daily);
+  const quests = useGameStore((s) => s.quests.list);
+  const claimable = passClaimable(pass);
+  const pendingPass = claimable.free.length + claimable.premium.length;
+  const questsToClaim = quests.filter((q) => !q.claimed && isQuestDone(q)).length;
 
   const star = Object.entries(today.sold).sort((a, b) => b[1] - a[1])[0];
   const earned = round1(today.revenue + today.tips + today.antiGaspiRevenue);
@@ -71,6 +79,23 @@ export default function Summary() {
       <Row label={`+${today.starsEarned} points aujourd’hui`} value={`Niveau ${reputationLevel(reputation)}`} />
       <ProgressBar value={reputationProgress(reputation)} color={colors.honey} />
     </Card>,
+    <Card key="pass" style={styles.card}>
+      <T style={styles.cardTitle}>📗 Carnet de saison</T>
+      <Row label={`+${today.passXp ?? 0} XP aujourd’hui`} value={`Palier ${passTier(pass.xp)}/${PASS_TIERS}`} />
+      <ProgressBar value={(pass.xp % PASS_XP_PER_TIER) / PASS_XP_PER_TIER} color={colors.sageDark} />
+      {pendingPass > 0 && <T style={styles.highlight}>🎁 {pendingPass} récompense(s) t’attendent dans le Carnet</T>}
+      {questsToClaim > 0 && (
+        <T style={styles.highlight}>📋 {questsToClaim} quête(s) terminée(s) à récupérer sur l’accueil</T>
+      )}
+      <PillButton small variant="secondary" label="Ouvrir le Carnet" onPress={() => router.push('/pass')} />
+    </Card>,
+    <Card key="tomorrow" style={[styles.card, styles.tomorrow]}>
+      <T style={styles.cardTitle}>🌅 Demain au marché</T>
+      <T style={styles.soft}>
+        Cadeau du jour : {rewardLabel(DAILY_REWARDS[daily.claimed % DAILY_REWARDS.length])} · de nouvelles quêtes · la
+        suite du Carnet.
+      </T>
+    </Card>,
   ].filter(Boolean);
 
   return (
@@ -120,6 +145,7 @@ const styles = StyleSheet.create({
   soft: { color: colors.textSoft, fontSize: 13 },
   highlight: { fontWeight: '700', color: colors.sageDark, marginTop: 4 },
   starCard: { alignItems: 'center' },
+  tomorrow: { backgroundColor: '#FFF8E6' },
   starEmoji: { fontSize: 56 },
   starName: { fontWeight: '800' },
 });

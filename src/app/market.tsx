@@ -16,9 +16,11 @@ import { Awning, Sky } from '@/components/scenery';
 import { StallGrid } from '@/components/stall';
 import { Card, PillButton, Screen, T, TopBar, useContentWidth } from '@/components/ui';
 import { CONFIG } from '@/game/config';
+import { SUBSCRIBER_TIP_BONUS } from '@/game/data/monetization';
 import { reputationLevel, seasonForDay } from '@/game/logic/calendar';
 import { checkout, customerCount, generateCustomer, serveProduct, spawnSchedule } from '@/game/logic/customers';
 import { effectiveUnitPrice, formatCoins } from '@/game/logic/economy';
+import { isSubscriber } from '@/game/logic/meta';
 import { createRng } from '@/game/logic/random';
 import { slotCapacity } from '@/game/logic/stall';
 import type { Customer } from '@/game/types';
@@ -38,6 +40,11 @@ type Sim = {
   spawned: number;
   uid: number;
 };
+
+/** Pourboires +10 % pour les Ami·es du marché. */
+function tipBonus(state: { entitlements: { subscriptionUntil: number | null } }): number {
+  return isSubscriber(state.entitlements.subscriptionUntil, Date.now()) ? SUBSCRIBER_TIP_BONUS : 1;
+}
 
 function clockLabel(progress: number): string {
   const minutes = Math.round((8 + progress * 10) * 60);
@@ -96,7 +103,7 @@ export default function Market() {
 
   const doCheckout = (customer: Customer) => {
     const state = useGameStore.getState();
-    const result = checkout(customer, state.today.attractiveness, state.upgrades, rng);
+    const result = checkout(customer, state.today.attractiveness, state.upgrades, rng, tipBonus(state));
     const { newRegular } = state.completeSale(customer, result);
     if (customer.units > 0) {
       playSfx('coin');
@@ -216,7 +223,8 @@ export default function Market() {
     const state = useGameStore.getState();
     for (const c of sim.current.customers) {
       if (c.leaving) continue;
-      if (c.units > 0) state.completeSale(c, checkout(c, state.today.attractiveness, state.upgrades, rng));
+      if (c.units > 0)
+        state.completeSale(c, checkout(c, state.today.attractiveness, state.upgrades, rng, tipBonus(state)));
       else state.customerLeft();
     }
     sim.current.customers = [];

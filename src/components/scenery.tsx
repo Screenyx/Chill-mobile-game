@@ -11,7 +11,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { T } from '@/components/ui';
-import { colors } from '@/theme';
+import { getCosmetic } from '@/game/data/monetization';
+import { useGameStore } from '@/store/gameStore';
 
 /** Couleurs du ciel du lever au coucher du soleil. */
 const SKY_STOPS = [0, 0.15, 0.5, 0.8, 1];
@@ -82,13 +83,15 @@ export function Sky({ progress, width, height, children }: SkyProps) {
 }
 
 /** Auvent rayé au-dessus de l'étal. */
-export function Awning({ width, stripes = 8 }: { width: number; stripes?: number }) {
+export function Awning({ width, stripes = 8, cosmeticId }: { width: number; stripes?: number; cosmeticId?: string }) {
+  const equipped = useGameStore((s) => s.awning);
+  const [main, alt] = getCosmetic(cosmeticId ?? equipped).stripes;
   const stripeW = width / stripes;
   return (
     <View style={{ width, height: 34 }}>
       <View style={{ flexDirection: 'row', height: 22 }}>
         {Array.from({ length: stripes }, (_, i) => (
-          <View key={i} style={{ width: stripeW, backgroundColor: i % 2 === 0 ? colors.terracotta : colors.paper }} />
+          <View key={i} style={{ width: stripeW, backgroundColor: i % 2 === 0 ? main : alt }} />
         ))}
       </View>
       <View style={{ flexDirection: 'row' }}>
@@ -100,7 +103,7 @@ export function Awning({ width, stripes = 8 }: { width: number; stripes?: number
               height: 12,
               borderBottomLeftRadius: stripeW / 2,
               borderBottomRightRadius: stripeW / 2,
-              backgroundColor: i % 2 === 0 ? colors.terracotta : colors.paper,
+              backgroundColor: i % 2 === 0 ? main : alt,
             }}
           />
         ))}

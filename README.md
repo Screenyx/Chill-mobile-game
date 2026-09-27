@@ -30,6 +30,51 @@ Le prompt de game design d'origine est dans [`PROMPT.md`](./PROMPT.md).
 
 La partie est **sauvegardée automatiquement**.
 
+## Monétisation et rétention
+
+### Boucles de retour (gratuites)
+
+- **Cadeau du jour 🎁** : un calendrier de 7 jours réels (pièces puis miel, gros cadeau au 7ᵉ jour). Manquer un jour ne remet rien à zéro.
+- **Quêtes du jour 📋** : 3 objectifs variés chaque jour réel (servir des clients, vendre un produit, soigner l'attractivité…), récompensés en pièces, miel et XP.
+- **Carnet de saison 📗** : 20 paliers d'XP par saison du jeu (7 journées), avec une ligne gratuite et une ligne premium. L'XP vient des clients servis, des étoiles, des journées terminées et des quêtes.
+- **Récap du soir** : il montre la progression du Carnet, les récompenses à récupérer et ce qui attend le joueur demain.
+
+### Ce qui se vend
+
+| Produit | Prix | Contenu |
+| --- | --- | --- |
+| Pots de miel 🍯 | 0,99 € → 49,99 € | 80 à 6 000 🍯 (bonus croissant) ; **premier achat doublé** |
+| Panier de bienvenue 🧺 | 2,99 € (une fois) | 300 🍯 + 300 🪙 + auvent exclusif ; proposé à partir du jour 2 |
+| Carnet de saison Premium 📗 | 4,99 € / saison | Ligne premium, paliers déjà atteints débloqués d'un coup |
+| Ami·e du marché 💚 | 2,99 € / mois | +30 🍯/jour, cadeaux doublés, pourboires +10 %, auvent Lavande |
+
+Où dépenser le miel :
+- des auvents cosmétiques ;
+- une conversion miel → pièces, pour s'offrir plus tôt une amélioration.
+
+Quand il manque des pièces ou du miel, le jeu propose directement le plus petit pot suffisant.
+
+### Principes retenus
+
+Le but est de maximiser la dépense **dans la durée** : des joueurs qui reviennent chaque jour et qui ont confiance dépensent plus que des joueurs brusqués. Le jeu évite donc les pratiques qui font fuir, qui font signaler l'app ou qui posent un risque légal :
+- aucun tirage aléatoire payant (les loot boxes sont interdites en Belgique et encadrées ailleurs) ;
+- aucun faux compte à rebours, aucune jauge d'énergie, aucune punition en cas d'absence ;
+- un prix réel affiché avant chaque achat ;
+- une limite de dépenses mensuelle réglable (utile pour les enfants) ;
+- une restauration des achats ;
+- une nouvelle partie qui conserve tout ce qui a été payé.
+
+### Brancher de vrais paiements
+
+Les achats passent par l'interface `PurchaseProvider` (`src/iap/purchases.ts`). Par défaut, c'est le **mode démo** : l'achat est simulé et la mention « aucun paiement réel » s'affiche.
+
+Pour la production :
+1. Crée les produits dans App Store Connect et Google Play Console avec les identifiants de `src/game/data/monetization.ts`. Ce sont `honey_80`, `honey_450`, `honey_1000`, `honey_2200`, `honey_6000`, `starter_pack`, `friend_of_market_monthly` et `season_pass`.
+2. Installe un SDK d'achats, par exemple RevenueCat (`npx expo install react-native-purchases`). Il nécessite un *development build* (`eas build --profile development`) et ne fonctionne pas dans Expo Go.
+3. Implémente un `PurchaseProvider` qui appelle le SDK, puis enregistre-le au démarrage avec `setPurchaseProvider(...)`.
+4. Pour l'abonnement et le Carnet, fie-toi aux droits renvoyés par le serveur du store plutôt qu'au seul état local.
+5. Affiche les prix localisés renvoyés par le store à la place de `displayPrice`.
+
 ## Lancer le jeu
 
 ```bash
@@ -58,6 +103,8 @@ src/
     stall-setup.tsx       # phase 1b : rangement (glisser-déposer) + prix
     market.tsx            # phase 2 : vente
     summary.tsx           # récap de fin de journée
+    store.tsx             # boutique : offres, pots de miel, auvents
+    pass.tsx              # Carnet de saison
     shop.tsx · collection.tsx · settings.tsx
   components/             # Crate, StallGrid, CustomerCard, Sky, Awning, PriceSheet, UI de base
   game/
@@ -65,6 +112,7 @@ src/
     types.ts
     data/                 # catalogue : produits, types de clients, améliorations
     logic/                # logique pure et testée : économie, étal, clients, calendrier
+  iap/purchases.ts        # interface d'achats intégrés (mode démo par défaut)
   store/gameStore.ts      # état global (Zustand) + sauvegarde (AsyncStorage)
   audio/sound.ts          # musique, effets sonores, vibrations
   theme/                  # couleurs, rayons, espacements

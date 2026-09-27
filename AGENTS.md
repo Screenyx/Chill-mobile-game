@@ -47,3 +47,4 @@ Docs: https://docs.expo.dev/eas/index.md
 - Les données (produits, clients, améliorations) sont dans `src/game/data`, l'équilibrage dans `src/game/config.ts`.
 - Textes du jeu en français.
 - Avant de terminer : `npm run typecheck`, `npm run lint`, `npm test`.
+- Monétisation (`src/game/data/monetization.ts`, `src/game/logic/meta.ts`) : pas de tirage aléatoire payant, pas de faux compte à rebours, prix réel affiché avant achat, et la limite de dépenses est toujours respectée.

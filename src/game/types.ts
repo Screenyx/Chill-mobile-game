@@ -111,6 +111,8 @@ export type DayStats = {
   antiGaspiUnits: number;
   antiGaspiRevenue: number;
   attractiveness: number;
+  /** XP du Carnet de saison gagnée dans la journée. */
+  passXp: number;
 };
 
 export type Settings = {

@@ -1,9 +1,11 @@
+import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { haptic, playSfx } from '@/audio/sound';
 import { Card, goBack, PillButton, Screen, T, TopBar } from '@/components/ui';
 import { UPGRADES } from '@/game/data/upgrades';
+import { formatCoins } from '@/game/logic/economy';
 import { useGameStore } from '@/store/gameStore';
 import { colors, spacing } from '@/theme';
 
@@ -14,7 +16,7 @@ export default function Shop() {
 
   return (
     <Screen>
-      <TopBar title="Boutique 🛠️" />
+      <TopBar title="Améliorations 🛠️" />
       <T style={styles.hint}>Embellis ton étal : les décorations attirent davantage de passants.</T>
       <ScrollView contentContainerStyle={styles.list}>
         {UPGRADES.map((u, i) => {
@@ -30,12 +32,11 @@ export default function Shop() {
                 </View>
                 {owned ? (
                   <T style={styles.ownedLabel}>Installé ✓</T>
-                ) : (
+                ) : coins >= u.cost ? (
                   <PillButton
                     small
                     variant="honey"
                     label={`${u.cost} 🪙`}
-                    disabled={coins < u.cost}
                     onPress={() => {
                       if (buyUpgrade(u.id)) {
                         playSfx('coin');
@@ -43,6 +44,16 @@ export default function Shop() {
                       }
                     }}
                   />
+                ) : (
+                  <View style={styles.missing}>
+                    <T style={styles.missingText}>{u.cost} 🪙</T>
+                    <PillButton
+                      small
+                      variant="secondary"
+                      label={`Il manque ${formatCoins(u.cost - coins)} · 🍯`}
+                      onPress={() => router.push('/store')}
+                    />
+                  </View>
                 )}
               </Card>
             </Animated.View>
@@ -67,4 +78,6 @@ const styles = StyleSheet.create({
   bonus: { fontSize: 12, color: colors.terracottaDark, fontWeight: '700', marginTop: 2 },
   ownedLabel: { fontWeight: '800', color: colors.sageDark },
   footer: { padding: spacing.lg },
+  missing: { alignItems: 'flex-end', gap: 4, maxWidth: 150 },
+  missingText: { fontWeight: '800', color: colors.textSoft },
 });
